@@ -100,4 +100,4 @@ script/console           # start IRB with the gem loaded
 
 ## License
 
-BSD 3-Clause, the same as Puma. The parser is ported from Puma’s C extension, so the license keeps Puma’s copyright notice. See [LICENSE.txt](LICENSE.txt).
+BSD 3-Clause, the same as Puma. The parser is ported from Puma’s C extension, so the license keeps Puma’s copyright notice. See [LICENSE.md](LICENSE.md).

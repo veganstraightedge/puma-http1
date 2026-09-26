@@ -1,7 +1,9 @@
-BSD 3-Clause License
+# BSD 3-Clause License
 
 Copyright (c) 2026, Shane Becker.
+
 Ported from Puma, Copyright (c) 2019, Evan Phoenix. Some code by Zed Shaw, (c) 2005.
+
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
