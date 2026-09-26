@@ -3,7 +3,7 @@
 
 # Boots the example app twice, once as usual and once with Puma's
 # puma_http11 extension hidden, sends each a request, and prints the
-# response. Both use Puma::HTTP::Parser, set in example/config/puma.rb.
+# response. Both use Puma::HTTP1::Parser, set in example/config/puma.rb.
 
 require "net/http"
 require "socket"

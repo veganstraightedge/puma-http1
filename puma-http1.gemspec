@@ -1,23 +1,23 @@
 # frozen_string_literal: true
 
-require_relative "lib/puma/http/version"
+require_relative "lib/puma/http1/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "puma-http"
-  spec.version = Puma::HTTP::VERSION
+  spec.name = "puma-http1"
+  spec.version = Puma::HTTP1::VERSION
   spec.authors = ["Shane Becker"]
   spec.email = ["veganstraightedge@gmail.com"]
 
   spec.summary = "An HTTP parser for Puma, written in Ruby."
   spec.description = "A drop-in for the HTTP parser in Puma's puma_http11 C extension, " \
                      "for use with Puma's http_parser option."
-  spec.homepage = "https://github.com/veganstraightedge/puma-http"
+  spec.homepage = "https://github.com/veganstraightedge/puma-http1"
   spec.license = "BSD-3-Clause"
   spec.required_ruby_version = ">= 3.4.0"
   spec.metadata["allowed_push_host"] = "https://rubygems.org"
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = "https://github.com/veganstraightedge/puma-http"
-  spec.metadata["changelog_uri"] = "https://github.com/veganstraightedge/puma-http/blob/main/CHANGELOG.md"
+  spec.metadata["source_code_uri"] = "https://github.com/veganstraightedge/puma-http1"
+  spec.metadata["changelog_uri"] = "https://github.com/veganstraightedge/puma-http1/blob/main/CHANGELOG.md"
 
   # Require MFA for gem pushes.
   # This helps protect your gem from supply chain attacks by ensuring

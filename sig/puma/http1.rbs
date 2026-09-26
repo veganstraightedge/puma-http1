@@ -1,5 +1,5 @@
 module Puma
-  module HTTP
+  module HTTP1
     VERSION: String
     # See the writing guide of rbs: https://github.com/ruby/rbs#guides
   end

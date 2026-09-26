@@ -2,7 +2,7 @@
 
 require "digest"
 
-RSpec.describe Puma::HTTP::Parser do
+RSpec.describe Puma::HTTP1::Parser do
   subject(:parser) { described_class.new }
 
   let(:env) { {} }

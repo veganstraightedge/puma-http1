@@ -1,8 +1,8 @@
-# puma-http
+# puma-http1
 
-An HTTP parser for [Puma](https://github.com/puma/puma), written in Ruby.
+An HTTP/1.x parser for [Puma](https://github.com/puma/puma), written in Ruby.
 
-`Puma::HTTP::Parser` is a drop-in for `Puma::HttpParser`, the parser in Puma's `puma_http11` C extension. It follows the same Ragel grammar state for state, fills the same env keys, enforces the same length limits, and raises the same errors with the same messages. The specs run every request through both parsers and expect the same result.
+`Puma::HTTP1::Parser` is a drop-in for `Puma::HttpParser`, the parser in Puma's `puma_http11` C extension. It follows the same Ragel grammar state for state, fills the same env keys, enforces the same length limits, and raises the same errors with the same messages. The specs run every request through both parsers and expect the same result.
 
 With it, Puma can run where its C extension can't be built or loaded.
 
@@ -15,7 +15,7 @@ This is a reference implementation for a proposed `http_parser` option in Puma. 
 ```ruby
 # Gemfile
 gem "puma", github: "veganstraightedge/puma", branch: "pluggable-http-parser"
-gem "puma-http", github: "veganstraightedge/puma-http"
+gem "puma-http1", github: "veganstraightedge/puma-http1"
 ```
 
 ## Usage
@@ -24,12 +24,14 @@ Require the gem and pass the parser class to Puma's `http_parser` option.
 
 ```ruby
 # config/puma.rb
-require "puma/http"
+require "puma/http1"
 
-http_parser Puma::HTTP::Parser
+http_parser Puma::HTTP1::Parser
 ```
 
 Puma's [HTTP parser documentation](https://github.com/veganstraightedge/puma/blob/pluggable-http-parser/docs/http_parser.md) describes the interface a parser has to follow.
+
+The gem is named `puma-http1`, and the module `Puma::HTTP1`, rather than `Puma::HTTP`, because `Puma::Const::HTTP` already exists. Puma's code refers to it without the `Const::` prefix, so a `Puma::HTTP` module would be found first and break Puma.
 
 ### Without the C extension
 
@@ -40,12 +42,12 @@ The [example app](example) runs both ways:
 ```
 $ script/example
 === With puma_http11 installed ===
-HTTP parser: Puma::HTTP::Parser
+HTTP parser: Puma::HTTP1::Parser
 puma_http11: loaded
 ...
 
 === With puma_http11 hidden ===
-HTTP parser: Puma::HTTP::Parser
+HTTP parser: Puma::HTTP1::Parser
 puma_http11: not loaded
 ...
 ```
@@ -58,7 +60,7 @@ The C parser upcases header names inside the request buffer as it parses. This p
 
 It's slower than the C parser. Microseconds per parse on an Apple M1 with Ruby 4.0.7, from `script/benchmark`:
 
-| request                 | Puma::HttpParser | Puma::HTTP::Parser | Puma::HTTP::Parser with YJIT |
+| request                 | Puma::HttpParser | Puma::HTTP1::Parser | Puma::HTTP1::Parser with YJIT |
 |:------------------------|-----------------:|-------------------:|-----------------------------:|
 | minimal GET             |             0.46 |               3.18 |                         2.71 |
 | browser GET, 13 headers |             2.72 |              16.70 |                        15.69 |
@@ -66,7 +68,7 @@ It's slower than the C parser. Microseconds per parse on an Apple M1 with Ruby 4
 
 That's roughly 2 to 14 µs more per request. A hello world app, with keep-alive and 4 threads, serves this many requests per second:
 
-| request   | JIT  | Puma::HttpParser | Puma::HTTP::Parser |  gap |
+| request   | JIT  | Puma::HttpParser | Puma::HTTP1::Parser |  gap |
 |:----------|:-----|-----------------:|-------------------:|-----:|
 | minimal   | none |            30445 |              25289 | -17% |
 | 9 headers | none |            28095 |              20254 | -28% |

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the example app with Puma and Puma::HTTP::Parser on port 9292,
+# Runs the example app with Puma and Puma::HTTP1::Parser on port 9292,
 # or on $PORT.
 set -euo pipefail
 

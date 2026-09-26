@@ -3,8 +3,8 @@
 require "puma"
 
 # Runs the same requests through Puma's own parser, from its puma_http11
-# extension, and through Puma::HTTP::Parser, and expects the same results.
-RSpec.describe Puma::HTTP::Parser, "compared to Puma::HttpParser" do
+# extension, and through Puma::HTTP1::Parser, and expects the same results.
+RSpec.describe Puma::HTTP1::Parser, "compared to Puma::HttpParser" do
   requests = [
     "GET / HTTP/1.1\r\n\r\n",
     "GET /?a=1 HTTP/1.1\r\nHost: example.com\r\n\r\n",

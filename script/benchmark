@@ -2,14 +2,14 @@
 # frozen_string_literal: true
 
 # Compares how long Puma::HttpParser, from Puma's puma_http11 C extension,
-# and Puma::HTTP::Parser take to parse the same requests. Run it with the
+# and Puma::HTTP1::Parser take to parse the same requests. Run it with the
 # JIT to measure, e.g.
 #
 #   bundle exec ruby --yjit script/benchmark
 
 require "bundler/setup"
 require "puma"
-require "puma/http"
+require "puma/http1"
 
 ITERATIONS = Integer(ENV.fetch("ITERATIONS", 200_000))
 
@@ -86,12 +86,12 @@ jit = if defined?(RubyVM::YJIT) && RubyVM::YJIT.enabled? then "YJIT"
 
 puts "#{RUBY_DESCRIPTION}, #{jit}, #{ITERATIONS} iterations per request"
 puts
-puts "| request     | Puma::HttpParser µs | Puma::HTTP::Parser µs | ratio |"
+puts "| request     | Puma::HttpParser µs | Puma::HTTP1::Parser µs | ratio |"
 puts "|:------------|--------------------:|----------------------:|------:|"
 
 REQUESTS.each do |name, request|
   c_microseconds = measure(Puma::HttpParser, request)
-  ruby_microseconds = measure(Puma::HTTP::Parser, request)
+  ruby_microseconds = measure(Puma::HTTP1::Parser, request)
   ratio = ruby_microseconds / c_microseconds
 
   puts format("| %<name>-11s | %<c_microseconds>19.2f | %<ruby_microseconds>21.2f | %<ratio>4.1fx |",

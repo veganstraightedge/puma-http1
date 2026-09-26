@@ -2,7 +2,7 @@
 
 source "https://rubygems.org"
 
-# Specify your gem's dependencies in puma-http.gemspec
+# Specify your gem's dependencies in puma-http1.gemspec
 gemspec
 
 # Puma's http_parser option isn't released yet.
