@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/veganstraightedge/puma.git
-  revision: c3fe25545fa07b86137cbc8c7c0903b5f59ffe87
+  revision: 3318f102cbbda39ad948b59ac1cbac55cb82d510
   branch: pluggable-http-parser
   specs:
     puma (8.0.2)

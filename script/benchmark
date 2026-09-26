@@ -84,7 +84,21 @@ jit = if defined?(RubyVM::YJIT) && RubyVM::YJIT.enabled? then "YJIT"
       else "no JIT"
       end
 
-puts "#{RUBY_DESCRIPTION}, #{jit}, #{ITERATIONS} iterations per request"
+root = File.expand_path("..", __dir__)
+puma_source = Gem.loaded_specs["puma"].source
+puma_revision = puma_source.respond_to?(:revision) ? puma_source.revision : "unknown"
+
+puts "## Microseconds per parse"
+puts
+puts "- Date: #{Time.now.utc.strftime("%Y-%m-%d %H:%M UTC")}"
+puts "- Ruby: #{RUBY_DESCRIPTION}, #{jit}"
+puts "- CPU: #{`sysctl -n machdep.cpu.brand_string 2>/dev/null`.strip}"
+puts "- Puma: #{Puma::Const::PUMA_VERSION}, #{puma_revision}"
+puts "- puma-http1: #{IO.popen(["git", "-C", root, "rev-parse", "HEAD"], &:read).strip}"
+puts "- Load: #{`uptime`.strip}"
+puts "- Each value: the mean of #{ITERATIONS} parses, after 1,000 to warm up"
+puts
+puts "All values are microseconds per parse. Smaller is better. The ratio is Puma::HTTP1::Parser over Puma::HttpParser."
 puts
 puts "| request     | Puma::HttpParser µs | Puma::HTTP1::Parser µs | ratio |"
 puts "|:------------|--------------------:|----------------------:|------:|"
