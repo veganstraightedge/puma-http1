@@ -1,0 +1,122 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Runs Puma's own tests with Puma::HTTP1::Parser in place of Puma::HttpParser,
+# to check it can stand in for Puma's C parser.
+#
+# It clones Puma's pluggable-http-parser branch into tmp/, installs Puma's
+# test dependencies, and builds Puma's C extension. Then it runs Puma's test
+# files in one process, with script/support/use_puma_http1.rb loaded first, so
+# every Puma::Server and Puma::Client in that process uses Puma::HTTP1::Parser.
+#
+# It skips the test files built on Puma's TestIntegration helper. Those start
+# Puma as a separate process, which the support file can't reach, so they'd
+# run Puma's C parser anyway. test_http11.rb is one of them. It tests
+# Puma::HttpParser itself, which this gem's own tests cover for Puma::HTTP1.
+#
+# Two tests are expected to fail. They check the text of the "Bad headers"
+# error message, which includes the header names from the request buffer.
+# The C parser upcases header names inside that buffer as it parses.
+# Puma::HTTP1::Parser leaves the buffer alone, as Puma's Java parser does.
+#
+# It exits with success when the failures are exactly those two.
+#
+#   script/test-puma-suite
+#
+# Run it directly, not with bundle exec. It needs git and a C compiler.
+
+require "fileutils"
+require "rbconfig"
+
+PUMA_REPOSITORY = ENV.fetch("PUMA_REPOSITORY", "https://github.com/veganstraightedge/puma.git")
+PUMA_BRANCH = "pluggable-http-parser"
+ROOT = File.expand_path("..", __dir__)
+WORK_DIRECTORY = File.join(ROOT, "tmp", "test-puma-suite", RUBY_VERSION)
+PUMA_DIRECTORY = File.join(WORK_DIRECTORY, PUMA_BRANCH)
+LOG = File.join(WORK_DIRECTORY, "output.log")
+RESULTS = File.join(WORK_DIRECTORY, "results.txt")
+SUPPORT = File.join(__dir__, "support")
+
+EXPECTED_FAILURES = %w[
+  TestRequestHeadersInvalid#test_malformed_headers_no_newline
+  TestRequestHeadersInvalid#test_malformed_headers_no_return
+].freeze
+
+# The environment for commands run in Puma's clone, with Puma's Gemfile.
+PUMA_ENVIRONMENT = {
+  "BUNDLE_GEMFILE" => File.join(PUMA_DIRECTORY, "Gemfile"),
+  "PUMA_HTTP1_RESULTS" => RESULTS,
+  "PUMA_NO_RUBOCOP" => "true",
+  "RUBYOPT" => nil
+}.freeze
+
+def run!(*command, chdir: PUMA_DIRECTORY, out: $stdout)
+  system(PUMA_ENVIRONMENT, *command, chdir:, out:, exception: true)
+end
+
+def checkout
+  FileUtils.rm_rf(PUMA_DIRECTORY)
+  run!("git", "clone", "--quiet", "--depth", "1", "--branch", PUMA_BRANCH, PUMA_REPOSITORY, PUMA_DIRECTORY, chdir: ROOT)
+  run!("bundle", "install", "--quiet")
+
+  extension = File.join(PUMA_DIRECTORY, "ext", "puma_http11")
+  run!(RbConfig.ruby, "extconf.rb", chdir: extension, out: File::NULL)
+  run!("make", "--quiet", chdir: extension, out: File::NULL)
+  library = File.join(extension, "puma_http11.#{RbConfig::CONFIG["DLEXT"]}")
+  FileUtils.cp(library, File.join(PUMA_DIRECTORY, "lib", "puma"))
+end
+
+# The test files that don't start Puma as a separate process.
+def in_process_test_files
+  Dir.glob("test/test_*.rb", base: PUMA_DIRECTORY).sort.reject do |file|
+    File.read(File.join(PUMA_DIRECTORY, file)).match?(/<\s*(::)?TestIntegration\b/)
+  end
+end
+
+# Runs the tests in their own process group, with output going to LOG, and
+# stops anything the tests leave running. minitest's summary goes to RESULTS,
+# through script/support/report_to_file.rb, since some tests redirect output.
+def run_tests(test_files)
+  command = ["bundle", "exec", RbConfig.ruby, "-Ilib", "-I#{File.join(ROOT, "lib")}",
+             "-r#{File.join(SUPPORT, "use_puma_http1.rb")}", "-r#{File.join(SUPPORT, "report_to_file.rb")}",
+             "-Itest", "-e", "ARGV.each { require File.expand_path(it) }", *test_files]
+  pid = Process.spawn(PUMA_ENVIRONMENT, *command, chdir: PUMA_DIRECTORY, out: LOG, err: %i[child out], pgroup: true)
+  Process.wait(pid)
+ensure
+  begin
+    Process.kill("TERM", -pid) if pid
+  rescue Errno::ESRCH
+    # Nothing was left running.
+  end
+end
+
+$stdout.sync = true
+checkout
+commit = IO.popen(["git", "-C", PUMA_DIRECTORY, "rev-parse", "HEAD"], &:read).strip
+test_files = in_process_test_files
+FileUtils.rm_f(RESULTS)
+
+puts "Puma #{PUMA_BRANCH} #{commit}"
+puts "puma-http1 #{IO.popen(["git", "-C", ROOT, "rev-parse", "HEAD"], &:read).strip}"
+puts RUBY_DESCRIPTION
+puts "Running #{test_files.size} of Puma's test files with Puma::HTTP1::Parser: #{test_files.join(" ")}"
+puts
+
+run_tests(test_files)
+
+results = File.exist?(RESULTS) ? File.read(RESULTS) : ""
+summary = results[/^\d+ runs, .*$/]
+abort "The tests didn't finish. Their output is in #{LOG}." unless summary
+
+puts results
+failures = results.scan(/^\s+\d+\) (?:Failure|Error):\n(\S+?#\S+?) /).flatten.uniq.sort
+
+if failures == EXPECTED_FAILURES
+  puts "Only the two expected failures, from the header names in the \"Bad headers\" message."
+else
+  unexpected = failures - EXPECTED_FAILURES
+  missing = EXPECTED_FAILURES - failures
+  puts "Unexpected failures: #{unexpected.join(", ")}" unless unexpected.empty?
+  puts "Expected failures that passed: #{missing.join(", ")}" unless missing.empty?
+  exit 1
+end
