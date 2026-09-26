@@ -1,0 +1,205 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Measures requests per second for a hello world app on three Puma servers:
+#
+# * Puma's main branch, with its C parser
+# * the pluggable-http-parser branch, with its default C parser
+# * the pluggable-http-parser branch, with Puma::HTTP1::Parser
+#
+# It clones both branches into tmp/, builds Puma's C extension for the Ruby
+# running this script, and starts all three servers at once. Each round sends
+# the same requests to every server in turn, with ApacheBench, so changes in
+# background load affect them alike. It prints every sample and the medians.
+#
+# Needs git, a C compiler, and ApacheBench (ab):
+# https://httpd.apache.org/docs/current/programs/ab.html
+#
+#   script/benchmark-server
+#   script/benchmark-server --yjit
+#
+# Run it directly, not with bundle exec. RUNS and REQUESTS change the number
+# of rounds and the requests per sample.
+
+require "fileutils"
+require "rbconfig"
+require "socket"
+
+PUMA_REPOSITORY = ENV.fetch("PUMA_REPOSITORY", "https://github.com/veganstraightedge/puma.git")
+ROOT = File.expand_path("..", __dir__)
+WORK_DIRECTORY = File.join(ROOT, "tmp", "benchmark-server", RUBY_VERSION)
+GEM_LIB = File.join(ROOT, "lib")
+PARSER_CONFIG = File.join(WORK_DIRECTORY, "http1_parser.rb")
+PARSER_MARKER = "benchmark-server: http_parser is Puma::HTTP1::Parser"
+RUNS = Integer(ENV.fetch("RUNS", 5))
+REQUESTS = Integer(ENV.fetch("REQUESTS", 30_000))
+YJIT = ARGV.include?("--yjit")
+
+HEADERS = [
+  "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 " \
+  "(KHTML, like Gecko) Chrome/128.0 Safari/537.36",
+  "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language: en-US,en;q=0.9",
+  "Accept-Encoding: gzip, deflate, br",
+  "Cookie: session=abc123def456; theme=dark; consent=1",
+  "Cache-Control: max-age=0",
+  "Upgrade-Insecure-Requests: 1",
+  "Sec-Fetch-Dest: document",
+  "Sec-Fetch-Mode: navigate"
+].freeze
+
+REQUEST_SHAPES = {
+  "minimal" => [],
+  "9 headers" => HEADERS
+}.freeze
+
+def run!(*command, chdir: ROOT)
+  system(*command, chdir:, out: File::NULL, exception: true)
+end
+
+# Clones ref and builds Puma's C extension into its lib/puma.
+def checkout(ref)
+  directory = File.join(WORK_DIRECTORY, ref)
+
+  unless File.exist?(File.join(directory, "lib", "puma", "puma_http11.#{RbConfig::CONFIG["DLEXT"]}"))
+    FileUtils.rm_rf(directory)
+    run!("git", "clone", "--quiet", "--depth", "1", "--branch", ref, PUMA_REPOSITORY, directory)
+
+    extension = File.join(directory, "ext", "puma_http11")
+    run!(RbConfig.ruby, "extconf.rb", chdir: extension)
+    run!("make", chdir: extension)
+    FileUtils.cp(File.join(extension, "puma_http11.#{RbConfig::CONFIG["DLEXT"]}"), File.join(directory, "lib", "puma"))
+  end
+
+  directory
+end
+
+def commit(directory) = IO.popen(["git", "-C", directory, "rev-parse", "HEAD"], &:read).strip
+
+def free_port
+  server = TCPServer.new("127.0.0.1", 0)
+  server.addr[1]
+ensure
+  server&.close
+end
+
+def wait_for(port)
+  100.times do
+    return TCPSocket.new("127.0.0.1", port).close
+  rescue Errno::ECONNREFUSED
+    sleep 0.1
+  end
+
+  abort "A server didn't start on port #{port}"
+end
+
+def start_server(directory:, port:, config: nil)
+  jit = YJIT ? ["--yjit"] : []
+  config_arguments = config ? ["-C", config] : []
+  rackup = File.join(directory, "test", "rackup", "hello.ru")
+  command = [RbConfig.ruby, *jit, "-Ilib", "-I#{GEM_LIB}", "bin/puma", "-t", "4:4",
+             "-b", "tcp://127.0.0.1:#{port}", *config_arguments, rackup]
+  # A clean environment, so Bundler from this shell can't pick the Puma.
+  environment = { "BUNDLE_GEMFILE" => nil, "RUBYOPT" => nil }
+  log = log_path(port)
+
+  Process.spawn(environment, *command, chdir: directory, out: log, err: log)
+end
+
+def log_path(port) = File.join(WORK_DIRECTORY, "server-#{port}.log")
+
+# PARSER_CONFIG prints PARSER_MARKER when Puma loads it, so a server's log
+# shows whether it's using Puma::HTTP1::Parser.
+def check_parser(name, port:, config:)
+  uses_ruby_parser = File.read(log_path(port)).include?(PARSER_MARKER)
+  return if uses_ruby_parser == !config.nil?
+
+  abort "#{name} isn't using the parser it should. Its log is #{log_path(port)}"
+end
+
+def requests_per_second(port, headers:)
+  header_arguments = headers.flat_map { ["-H", it] }
+  command = ["ab", "-k", "-q", "-c", "8", "-n", REQUESTS.to_s, *header_arguments, "http://127.0.0.1:#{port}/"]
+  output = IO.popen(command, err: %i[child out], &:read)
+
+  failed = output[/Failed requests:\s+(\d+)/, 1].to_i
+  abort "ApacheBench reported #{failed} failed requests:\n#{output}" unless failed.zero?
+
+  output[/Requests per second:\s+([\d.]+)/, 1].to_f
+end
+
+def median(values) = values.sort[values.size / 2]
+
+def with_commas(number) = number.round.to_s.reverse.scan(/\d{1,3}/).join(",").reverse
+
+FileUtils.mkdir_p(WORK_DIRECTORY)
+File.write(PARSER_CONFIG, <<~RUBY)
+  require "puma/http1"
+  http_parser Puma::HTTP1::Parser
+  puts "#{PARSER_MARKER}"
+RUBY
+
+main = checkout("main")
+pluggable = checkout("pluggable-http-parser")
+
+servers = {
+  "main" => { directory: main, config: nil },
+  "pluggable-http-parser, default parser" => { directory: pluggable, config: nil },
+  "pluggable-http-parser, Puma::HTTP1::Parser" => { directory: pluggable, config: PARSER_CONFIG }
+}
+ports = servers.transform_values { free_port }
+pids = servers.map { |name, server| start_server(**server, port: ports[name]) }
+samples = servers.keys.to_h { |name| [name, REQUEST_SHAPES.keys.to_h { [it, []] }] }
+load_before = `uptime`.strip
+
+begin
+  ports.each do |name, port|
+    wait_for(port)
+    check_parser(name, port:, config: servers[name][:config])
+    # A warm up round, so YJIT has compiled the hot paths before measuring.
+    requests_per_second(port, headers: HEADERS)
+  end
+
+  RUNS.times do
+    ports.each do |name, port|
+      REQUEST_SHAPES.each do |shape, headers|
+        samples[name][shape] << requests_per_second(port, headers:)
+      end
+    end
+  end
+ensure
+  # Stop every server before waiting on any, so they shut down together.
+  pids.each { Process.kill("TERM", it) }
+  pids.each { Process.wait(it) } # rubocop:disable Style/CombinableLoops
+end
+
+puts "## Requests per second"
+puts
+puts "- Date: #{Time.now.utc.strftime("%Y-%m-%d %H:%M UTC")}"
+puts "- Ruby: #{RUBY_DESCRIPTION}, #{YJIT ? "YJIT" : "no JIT"}"
+puts "- CPU: #{`sysctl -n machdep.cpu.brand_string 2>/dev/null`.strip}"
+puts "- ApacheBench: #{`ab -V`.lines.first.strip}"
+puts "- Puma main: #{commit(main)}"
+puts "- Puma pluggable-http-parser: #{commit(pluggable)}"
+puts "- puma-http1: #{commit(ROOT)}"
+puts "- Load before: #{load_before}"
+puts "- Load after: #{`uptime`.strip}"
+puts "- Each sample: `ab -k -c 8 -n #{REQUESTS}` against a hello world app on 4 threads, after one warm up round"
+puts
+puts "Median of #{RUNS} samples. All values are requests per second. Larger is better."
+puts
+puts "| server | minimal | 9 headers |"
+puts "|:--|--:|--:|"
+samples.each do |name, by_shape|
+  puts "| #{name} | #{with_commas(median(by_shape["minimal"]))} | #{with_commas(median(by_shape["9 headers"]))} |"
+end
+puts
+puts "Every sample, in the order they ran:"
+puts
+puts "| server | request | samples |"
+puts "|:--|:--|:--|"
+samples.each do |name, by_shape|
+  by_shape.each do |shape, values|
+    puts "| #{name} | #{shape} | #{values.map { with_commas(it) }.join(", ")} |"
+  end
+end
