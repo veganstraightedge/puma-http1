@@ -1,35 +1,82 @@
-# Puma::Http
+# puma-http
 
-TODO: Delete this and the text below, and describe your gem
+An HTTP parser for [Puma](https://github.com/puma/puma), written in Ruby.
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/puma/http`. To experiment with that code, run `bin/console` for an interactive prompt.
+`Puma::HTTP::Parser` is a drop-in for `Puma::HttpParser`, the parser in Puma's `puma_http11` C extension. It follows the same Ragel grammar state for state, fills the same env keys, enforces the same length limits, and raises the same errors with the same messages. The specs run every request through both parsers and expect the same result.
+
+With it, Puma can run where its C extension can't be built or loaded.
+
+## Status
+
+This is a reference implementation for a proposed `http_parser` option in Puma. That option isn't in a Puma release, so this gem needs Puma from the `pluggable-http-parser` branch of [veganstraightedge/puma](https://github.com/veganstraightedge/puma/tree/pluggable-http-parser). The gem isn't published to RubyGems.org.
 
 ## Installation
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
-
-Install the gem and add to the application's Gemfile by executing:
-
-```bash
-bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
-```
-
-If bundler is not being used to manage dependencies, install the gem by executing:
-
-```bash
-gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+```ruby
+# Gemfile
+gem "puma", github: "veganstraightedge/puma", branch: "pluggable-http-parser"
+gem "puma-http", github: "veganstraightedge/puma-http"
 ```
 
 ## Usage
 
-TODO: Write usage instructions here
+Require the gem and pass the parser class to Puma's `http_parser` option.
+
+```ruby
+# config/puma.rb
+require "puma/http"
+
+http_parser Puma::HTTP::Parser
+```
+
+Puma's [HTTP parser documentation](https://github.com/veganstraightedge/puma/blob/pluggable-http-parser/docs/http_parser.md) describes the interface a parser has to follow.
+
+### Without the C extension
+
+When Puma's `puma_http11` extension can't be loaded, Puma still starts, as long as `http_parser` is set. SSL isn't available then, because Puma's SSL support is in the same extension.
+
+The [example app](example) runs both ways:
+
+```
+$ script/example
+=== With puma_http11 installed ===
+HTTP parser: Puma::HTTP::Parser
+puma_http11: loaded
+...
+
+=== With puma_http11 hidden ===
+HTTP parser: Puma::HTTP::Parser
+puma_http11: not loaded
+...
+```
+
+## Differences from Puma::HttpParser
+
+The C parser upcases header names inside the request buffer as it parses. This parser leaves the buffer alone. So when Puma reports a request with bad headers, the error message shows the header names as the client sent them. Puma's Java parser, used on JRuby, behaves the same way.
+
+## Performance
+
+It's slower than the C parser. Microseconds per parse on an Apple M1, from `script/benchmark`:
+
+| request                 | Puma::HttpParser | Puma::HTTP::Parser | Puma::HTTP::Parser with YJIT |
+|:------------------------|-----------------:|-------------------:|-----------------------------:|
+| minimal GET             |             0.44 |               3.14 |                         1.56 |
+| browser GET, 13 headers |             2.76 |              17.05 |                        15.53 |
+| API POST, 7 headers     |             1.55 |              10.50 |                         7.12 |
+
+That's roughly 5 to 15 µs more per request. In a hello world app, that means 16 to 29 percent fewer requests per second. In an app doing real work per request, it should be a small fraction of the total.
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+```
+script/setup      # install dependencies, for the gem and the example app
+script/test       # run the specs and RuboCop
+script/example    # run the example app with and without puma_http11
+script/server     # run the example app on port 9292
+script/benchmark  # compare parsing time with Puma::HttpParser
+script/console    # start IRB with the gem loaded
+```
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+## License
 
-## Contributing
-
-Bug reports and pull requests are welcome on GitHub at https://github.com/veganstraightedge/puma-http.
+BSD 3-Clause, the same as Puma. The parser is ported from Puma's C extension, so the license keeps Puma's copyright notice. See [LICENSE.txt](LICENSE.txt).
