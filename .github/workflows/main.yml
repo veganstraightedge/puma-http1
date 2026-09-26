@@ -30,3 +30,23 @@ jobs:
           bundler-cache: true
       - name: Run the tests and the example app
         run: script/cibuild
+
+  puma-suite:
+    runs-on: ubuntu-latest
+    name: Puma's tests with Puma::HTTP1::Parser, Ruby ${{ matrix.ruby }}
+    strategy:
+      matrix:
+        ruby:
+          - '4.0.7'
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - name: Run Puma's tests with Puma::HTTP1::Parser
+        run: script/test-puma-suite

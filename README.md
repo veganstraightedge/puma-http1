@@ -4,6 +4,8 @@ An HTTP/1.x parser for [Puma](https://github.com/puma/puma), written in Ruby.
 
 `Puma::HTTP1::Parser` is a drop-in for `Puma::HttpParser`, the parser in Puma’s `puma_http11` C extension. It follows the same Ragel grammar state for state, fills the same env keys, enforces the same length limits, and raises the same errors with the same messages. The tests run every request through both parsers and expect the same result.
 
+[`script/test-puma-suite`](script/test-puma-suite) also runs Puma’s own tests with `Puma::HTTP1::Parser` in place of `Puma::HttpParser`. The only failures are two tests that check the header names in Puma’s “Bad headers” error message, explained [below](#differences-from-pumahttpparser). It skips Puma’s integration tests, which start Puma as a separate process and so always use the C parser. CI runs it on every push.
+
 With it, Puma can run where its C extension can't be built or loaded.
 
 ## Status
@@ -88,6 +90,7 @@ The complete output of these runs, with every sample, the commits measured, and 
 ```sh
 script/setup             # install dependencies, for the gem and the example app
 script/test              # run the tests and RuboCop
+script/test-puma-suite   # run Puma's own tests with Puma::HTTP1::Parser
 script/example           # run the example app with and without puma_http11
 script/server            # run the example app on port 9292
 script/benchmark         # compare parsing time with Puma::HttpParser
