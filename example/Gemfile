@@ -1,0 +1,8 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+# Puma's http_parser option isn't released yet.
+gem "puma", github: "veganstraightedge/puma", branch: "pluggable-http-parser"
+gem "puma-http", path: ".."
+gem "rack"

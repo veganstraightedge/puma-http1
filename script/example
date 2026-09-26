@@ -1,0 +1,50 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Boots the example app twice, once as usual and once with Puma's
+# puma_http11 extension hidden, sends each a request, and prints the
+# response. Both use Puma::HTTP::Parser, set in example/config/puma.rb.
+
+require "net/http"
+require "socket"
+
+EXAMPLE = File.expand_path("../example", __dir__)
+HIDE_EXTENSION = File.join(EXAMPLE, "without_puma_http11")
+
+def free_port
+  server = TCPServer.new("127.0.0.1", 0)
+  server.addr[1]
+ensure
+  server&.close
+end
+
+def wait_for(port)
+  50.times do
+    return TCPSocket.new("127.0.0.1", port).close
+  rescue Errno::ECONNREFUSED
+    sleep 0.1
+  end
+
+  abort "Puma didn't start on port #{port}"
+end
+
+def run_example(title, rubyopt: nil)
+  port = free_port
+  env = { "PORT" => port.to_s, "RUBYOPT" => rubyopt }
+  command = %w[bundle exec puma --quiet -C config/puma.rb config.ru]
+  pid = Process.spawn(env, *command, chdir: EXAMPLE, out: File::NULL, err: File::NULL)
+
+  wait_for(port)
+  uri = URI("http://127.0.0.1:#{port}/hello?name=world")
+  response = Net::HTTP.get(uri, { "User-Agent" => "script/example" })
+
+  puts "=== #{title} ==="
+  puts response
+  puts
+ensure
+  Process.kill("TERM", pid) if pid
+  Process.wait(pid) if pid
+end
+
+run_example("With puma_http11 installed")
+run_example("With puma_http11 hidden", rubyopt: "-I#{HIDE_EXTENSION}")
