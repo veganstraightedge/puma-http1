@@ -56,15 +56,24 @@ The C parser upcases header names inside the request buffer as it parses. This p
 
 ## Performance
 
-It's slower than the C parser. Microseconds per parse on an Apple M1, from `script/benchmark`:
+It's slower than the C parser. Microseconds per parse on an Apple M1 with Ruby 4.0.7, from `script/benchmark`:
 
 | request                 | Puma::HttpParser | Puma::HTTP::Parser | Puma::HTTP::Parser with YJIT |
 |:------------------------|-----------------:|-------------------:|-----------------------------:|
-| minimal GET             |             0.44 |               3.14 |                         1.56 |
-| browser GET, 13 headers |             2.76 |              17.05 |                        15.53 |
-| API POST, 7 headers     |             1.55 |              10.50 |                         7.12 |
+| minimal GET             |             0.46 |               3.18 |                         2.71 |
+| browser GET, 13 headers |             2.72 |              16.70 |                        15.69 |
+| API POST, 7 headers     |             1.53 |              10.20 |                         9.59 |
 
-That's roughly 5 to 15 µs more per request. In a hello world app, that means 16 to 29 percent fewer requests per second. In an app doing real work per request, it should be a small fraction of the total.
+That's roughly 2 to 14 µs more per request. A hello world app, with keep-alive and 4 threads, serves this many requests per second:
+
+| request   | JIT  | Puma::HttpParser | Puma::HTTP::Parser |  gap |
+|:----------|:-----|-----------------:|-------------------:|-----:|
+| minimal   | none |            30445 |              25289 | -17% |
+| 9 headers | none |            28095 |              20254 | -28% |
+| minimal   | YJIT |            33985 |              29483 | -13% |
+| 9 headers | YJIT |            31546 |              24140 | -23% |
+
+In an app doing real work per request, the difference should be a small fraction of the total.
 
 ## Development
 
