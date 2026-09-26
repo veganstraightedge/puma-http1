@@ -58,38 +58,41 @@ The C parser upcases header names inside the request buffer as it parses. This p
 
 ## Performance
 
-It’s slower than the C parser. Microseconds per parse on an Apple M1 with Ruby 4.0.7, from `script/benchmark`:
+It’s slower than the C parser. On an Apple M1 with Ruby 4.0.7, from [`script/benchmark`](script/benchmark):
 
 | request                 | Puma::HttpParser | Puma::HTTP1::Parser | Puma::HTTP1::Parser with YJIT |
 | :---------------------- | ---------------: | ------------------: | ----------------------------: |
-| minimal GET             |             0.46 |                3.18 |                          2.71 |
-| browser GET, 13 headers |             2.72 |               16.70 |                         15.69 |
-| API POST, 7 headers     |             1.53 |               10.20 |                          9.59 |
+| minimal GET             |             0.46 |                3.19 |                          2.79 |
+| browser GET, 13 headers |             2.81 |               17.18 |                         16.20 |
+| API POST, 7 headers     |             1.56 |               10.53 |                          9.92 |
 
 All values are microseconds per parse. Smaller is better.
 
-That’s roughly 2 to 14 µs more per request. A hello world app, with keep-alive and 4 threads, serves this many requests per second:
+That’s roughly 2 to 14 µs more per request. A hello world app, with keep-alive and 4 threads, serves this many requests per second, from [`script/benchmark-server`](script/benchmark-server) using [ApacheBench](https://httpd.apache.org/docs/current/programs/ab.html):
 
 | request   | JIT  | Puma::HttpParser | Puma::HTTP1::Parser |  gap |
 | :-------- | :--- | ---------------: | ------------------: | ---: |
-| minimal   | none |           30,445 |              25,289 | -17% |
-| 9 headers | none |           28,095 |              20,254 | -28% |
-| minimal   | YJIT |           33,985 |              29,483 | -13% |
-| 9 headers | YJIT |           31,546 |              24,140 | -23% |
+| minimal   | none |           26,815 |              23,009 | -14% |
+| 9 headers | none |           25,145 |              18,500 | -26% |
+| minimal   | YJIT |           30,234 |              26,998 | -11% |
+| 9 headers | YJIT |           28,270 |              22,323 | -21% |
 
 All values are requests per second, except the gap, which is how much slower `Puma::HTTP1::Parser` is. Larger is better for requests per second. Smaller is better for the gap.
 
 In an app doing real work per request, the difference should be a small fraction of the total.
 
+The complete output of these runs, with every sample, the commits measured, and the machine's load, is in [benchmarks/2026-09-26-ruby-4.0.7.md](benchmarks/2026-09-26-ruby-4.0.7.md).
+
 ## Development
 
 ```sh
-script/setup      # install dependencies, for the gem and the example app
-script/test       # run the specs and RuboCop
-script/example    # run the example app with and without puma_http11
-script/server     # run the example app on port 9292
-script/benchmark  # compare parsing time with Puma::HttpParser
-script/console    # start IRB with the gem loaded
+script/setup             # install dependencies, for the gem and the example app
+script/test              # run the specs and RuboCop
+script/example           # run the example app with and without puma_http11
+script/server            # run the example app on port 9292
+script/benchmark         # compare parsing time with Puma::HttpParser
+script/benchmark-server  # compare requests per second, with ApacheBench
+script/console           # start IRB with the gem loaded
 ```
 
 ## License
