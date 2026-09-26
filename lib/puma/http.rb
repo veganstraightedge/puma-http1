@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "http/version"
+require_relative "http/parser"
 
 module Puma
   # An HTTP parser for Puma, written in Ruby. Use it with Puma's

@@ -5,6 +5,9 @@ source "https://rubygems.org"
 # Specify your gem's dependencies in puma-http.gemspec
 gemspec
 
+# Puma's http_parser option isn't released yet.
+gem "puma", github: "veganstraightedge/puma", branch: "pluggable-http-parser"
+
 gem "irb"
 gem "rake", "~> 13.0"
 

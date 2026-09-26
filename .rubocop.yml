@@ -3,6 +3,45 @@ AllCops:
   NewCops: enable
   SuggestExtensions: false
 
+# The parser is a state machine that follows Puma's Ragel grammar, one state
+# per grammar element, so it's long and branchy on purpose.
+Metrics/AbcSize:
+  Exclude:
+    - lib/puma/http/parser.rb
+    - spec/**/*
+
+Metrics/BlockLength:
+  Exclude:
+    - "*.gemspec"
+    - spec/**/*
+
+Metrics/BlockNesting:
+  Exclude:
+    - lib/puma/http/parser.rb
+
+Metrics/ClassLength:
+  Exclude:
+    - lib/puma/http/parser.rb
+
+Metrics/CyclomaticComplexity:
+  Exclude:
+    - lib/puma/http/parser.rb
+
+Metrics/MethodLength:
+  Max: 20
+  Exclude:
+    - lib/puma/http/parser.rb
+
+Metrics/PerceivedComplexity:
+  Exclude:
+    - lib/puma/http/parser.rb
+
+# `it` is used for single-parameter blocks, but not in nested blocks, where it
+# would shadow the outer `it`, or in RSpec example groups, where it would
+# shadow RSpec's `it`. The cop can't tell those apart.
+Style/ItBlockParameter:
+  Enabled: false
+
 Style/StringLiterals:
   EnforcedStyle: double_quotes
 
