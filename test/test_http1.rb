@@ -6,7 +6,7 @@ require "puma/const"
 
 class TestHTTP1 < Minitest::Test
   def test_version
-    assert_equal "0.1.0", Puma::HTTP1::VERSION
+    assert_equal "0.0.1", Puma::HTTP1::VERSION
   end
 
   # Puma's code refers to Puma::Const constants without the Const:: prefix,

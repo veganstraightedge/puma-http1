@@ -10,14 +10,14 @@ With it, Puma can run where its C extension can't be built or loaded.
 
 ## Status
 
-This is a reference implementation for a proposed `http_parser` option in Puma. That option isn't in a Puma release, so this gem needs Puma from the `pluggable-http-parser` branch of [veganstraightedge/puma](https://github.com/veganstraightedge/puma/tree/pluggable-http-parser). The gem isn't published to RubyGems.org.
+This is an early reference implementation for a proposed `http_parser` option in Puma. That option isn't in a Puma release yet, so this gem needs Puma from the `pluggable-http-parser` branch of [veganstraightedge/puma](https://github.com/veganstraightedge/puma/tree/pluggable-http-parser).
 
 ## Installation
 
 ```ruby
 # Gemfile
 gem 'puma',       github: 'veganstraightedge/puma', branch: 'pluggable-http-parser'
-gem 'puma-http1', github: 'veganstraightedge/puma-http1'
+gem 'puma-http1'
 ```
 
 ## Usage

@@ -9,7 +9,7 @@ GIT
 PATH
   remote: ..
   specs:
-    puma-http1 (0.1.0)
+    puma-http1 (0.0.1)
       puma
 
 GEM
@@ -31,7 +31,7 @@ CHECKSUMS
   bundler (4.0.21) sha256=7cbf5499b426076aa16c8d28a59e4c2c3aad5a438402abcd961f0119f29f1dd0
   nio4r (2.7.5) sha256=6c90168e48fb5f8e768419c93abb94ba2b892a1d0602cb06eef16d8b7df1dca1
   puma (8.0.2)
-  puma-http1 (0.1.0)
+  puma-http1 (0.0.1)
   rack (3.2.7) sha256=93e13e1c24f93556671d85d2d79fa228c3485815c50d7e2f265b5330c6528fb7
 
 BUNDLED WITH

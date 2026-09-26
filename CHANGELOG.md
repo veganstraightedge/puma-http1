@@ -1,9 +1,12 @@
 ## [Unreleased]
 
-- Write the tests in minitest, like Puma's own test suite, instead of RSpec
-- Add `script/test-puma-suite`, running Puma's own tests with `Puma::HTTP1::Parser`, and run it in CI
+## [0.0.1] - 2026-09-26
+
+The first release, an early version of a reference implementation for Puma's proposed `http_parser` option.
 
 - Add `Puma::HTTP1::Parser`, a Ruby port of the HTTP parser in Puma's `puma_http11` C extension, for Puma's proposed `http_parser` option
 - Add an example app that runs Puma with `Puma::HTTP1::Parser`, with and without `puma_http11`
 - Add `script/benchmark`, comparing parsing time with `Puma::HttpParser`
 - Add `script/benchmark-server`, comparing requests per second with ApacheBench, and the results of a run on Ruby 4.0.7
+- Add `script/test-puma-suite`, running Puma's own tests with `Puma::HTTP1::Parser`, and run it in CI
+- Write the tests in minitest, like Puma's own test suite
