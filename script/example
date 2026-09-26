@@ -30,7 +30,7 @@ end
 
 def run_example(title, rubyopt: nil)
   port = free_port
-  env = { "PORT" => port.to_s, "RUBYOPT" => rubyopt }
+  env = { "BUNDLE_GEMFILE" => File.join(EXAMPLE, "Gemfile"), "PORT" => port.to_s, "RUBYOPT" => rubyopt }
   command = %w[bundle exec puma --quiet -C config/puma.rb config.ru]
   pid = Process.spawn(env, *command, chdir: EXAMPLE, out: File::NULL, err: File::NULL)
 

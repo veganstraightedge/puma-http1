@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Runs the example app with Puma and Puma::HTTP::Parser on port 9292,
+# or on $PORT.
+set -euo pipefail
+
+cd "$(dirname "$0")/../example"
+
+bundle exec puma -C config/puma.rb config.ru

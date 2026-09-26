@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Brings dependencies up to date after pulling changes.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+script/bootstrap

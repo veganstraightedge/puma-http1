@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Runs in CI: sets up, runs the tests, then runs the example app.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+script/bootstrap
+script/test
+script/example

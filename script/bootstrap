@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Installs the gem's dependencies and the example app's.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+bundle install
+(cd example && bundle install)
