@@ -55,7 +55,7 @@ module Puma
 
       # The first byte that ends a run of each class above, so that a run can be
       # skipped with one String#index call instead of a Ruby loop over each byte.
-      # Each must agree with its table; spec/puma/http1/parser_spec.rb checks that.
+      # Each must agree with its table; test/test_parser.rb checks that.
       METHOD_RUN_END = /[^A-Z0-9$\-_.]/n
       SCHEME_RUN_END = /[^A-Za-z0-9+\-.]/n
       URI_RUN_END = /[\x00-\x20"#<>\x7f]/n

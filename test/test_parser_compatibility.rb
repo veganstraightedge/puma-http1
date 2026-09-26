@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
+require_relative "helper"
 require "puma"
 
 # Runs the same requests through Puma's own parser, from its puma_http11
 # extension, and through Puma::HTTP1::Parser, and expects the same results.
-RSpec.describe Puma::HTTP1::Parser, "compared to Puma::HttpParser" do
-  requests = [
+class TestParserCompatibility < Minitest::Test
+  REQUESTS = [
     "GET / HTTP/1.1\r\n\r\n",
     "GET /?a=1 HTTP/1.1\r\nHost: example.com\r\n\r\n",
     "POST /orders HTTP/1.1\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}",
@@ -32,6 +33,10 @@ RSpec.describe Puma::HTTP1::Parser, "compared to Puma::HttpParser" do
     "\x16\x03\x01\x02\x00\x01\x00\x01".b
   ].freeze
 
+  def setup
+    skip "Puma's puma_http11 extension is not loaded" unless Puma.const_defined?(:HttpParser, false)
+  end
+
   # Parses request, split into pieces of chunk_size bytes, the way Puma feeds
   # a parser as data arrives, and returns everything a caller could observe.
   def outcome(parser_class, request, chunk_size:)
@@ -57,18 +62,25 @@ RSpec.describe Puma::HTTP1::Parser, "compared to Puma::HttpParser" do
     { body: parser.body, env:, error:, error?: parser.error?, finished?: parser.finished?, nread: }
   end
 
-  before do
-    skip "Puma's puma_http11 extension is not loaded" unless Puma.const_defined?(:HttpParser, false)
+  def assert_same_outcome(chunk_size: nil)
+    REQUESTS.each do |request|
+      size = chunk_size || request.bytesize
+      expected = outcome(Puma::HttpParser, request, chunk_size: size)
+      actual = outcome(Puma::HTTP1::Parser, request, chunk_size: size)
+
+      assert_equal expected, actual, "#{request.inspect} in #{size} byte pieces"
+    end
   end
 
-  requests.each do |request|
-    [1, 7, request.bytesize].each do |chunk_size|
-      it "matches for #{request.inspect[0, 60]} in #{chunk_size} byte pieces" do
-        expected = outcome(Puma::HttpParser, request, chunk_size:)
-        actual = outcome(described_class, request, chunk_size:)
+  def test_matches_for_whole_requests
+    assert_same_outcome
+  end
 
-        expect(actual).to eq expected
-      end
-    end
+  def test_matches_for_requests_in_7_byte_pieces
+    assert_same_outcome(chunk_size: 7)
+  end
+
+  def test_matches_for_requests_in_1_byte_pieces
+    assert_same_outcome(chunk_size: 1)
   end
 end

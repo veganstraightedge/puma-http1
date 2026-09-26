@@ -11,6 +11,6 @@ gem "puma", github: "veganstraightedge/puma", branch: "pluggable-http-parser"
 gem "irb"
 gem "rake", "~> 13.0"
 
-gem "rspec", "~> 3.0"
+gem "minitest", ">= 5.26"
 
 gem "rubocop", "~> 1.21"

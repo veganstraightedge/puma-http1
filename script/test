@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Runs the specs and RuboCop.
+# Runs the tests and RuboCop.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-bundle exec rspec --format progress
+bundle exec rake test
 bundle exec rubocop
